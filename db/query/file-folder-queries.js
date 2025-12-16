@@ -10,7 +10,9 @@ export async function getFolders() {
 };
 export async function getFiles() {
     const sql = `
-    SELECT * FROM files
+    SELECT files.*, folders.name AS folder_name
+    FROM files
+    JOIN folders ON files.folder_id = folders.id
     `;
 
     const { rows: files} = await db.query(sql);
@@ -33,7 +35,23 @@ export async function createFile({name, size, folderId}) {
     VALUES ($1, $2, $3)
     RETURNING *
     `;
-    
+
     const {rows: [file]} = await db.query(sql, [name, size, folderId]);
     return file;
+}
+
+export async function getFolderById(id) {
+    const sql = `
+    SELECT
+        folders.id,
+        folders.name,
+        COALESCE(json_agg(files.*) FILTER (WHERE files.id IS NOT NULL), '[]') AS files
+    FROM folders
+    LEFT JOIN files ON folders.id = files.folder_id
+    WHERE folders.id = $1
+    GROUP BY folders.id
+    `;
+
+    const {rows: [folder]} = await db.query(sql, [id]);
+    return folder;
 }
